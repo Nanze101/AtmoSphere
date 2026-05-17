@@ -1,4 +1,4 @@
-# AtmoSphere (or your chosen project name)
+# AtmoSphere
 
 An interactive, lightweight 3D Climate Globe built completely from scratch using vanilla HTML5 Canvas, CSS, and JavaScript. No external libraries (like Three.js) or dependencies required.
 
