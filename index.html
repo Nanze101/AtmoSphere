@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Climate Globe</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #04080f;
+    color: #e2e8f0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 40px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #f0f9ff;
+    letter-spacing: -0.3px;
+  }
+
+  header p {
+    font-size: 13px;
+    color: #475569;
+    margin-top: 4px;
+  }
+
+  #globe-container {
+    position: relative;
+    width: 100%;
+    max-width: 760px;
+  }
+
+  #gc {
+    display: block;
+    width: 100%;
+    border-radius: 16px;
+    cursor: grab;
+    background: #060d1a;
+  }
+
+  #gc:active { cursor: grabbing; }
+
+  #tooltip {
+    position: absolute;
+    display: none;
+    background: rgba(8, 16, 32, 0.95);
+    border: 0.5px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 12px 16px;
+    pointer-events: none;
+    z-index: 20;
+    min-width: 200px;
+    backdrop-filter: blur(8px);
+  }
+
+  #tt-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f0f9ff;
+    margin-bottom: 8px;
+    border-bottom: 0.5px solid rgba(255,255,255,0.08);
+    padding-bottom: 6px;
+  }
+
+  #tt-rows {
+    font-size: 11px;
+    color: #64748b;
+    line-height: 2;
+    font-family: 'Courier New', monospace;
+  }
+
+  #tt-rows span { color: #94a3b8; }
+
+  #tt-pledge {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 0.5px solid rgba(255,255,255,0.06);
+    font-size: 11px;
+    color: #5dcaa5;
+    font-family: 'Courier New', monospace;
+  }
+
+  #tt-hint {
+    margin-top: 5px;
+    font-size: 10px;
+    color: #1e40af;
+    font-family: 'Courier New', monospace;
+  }
+
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+    max-width: 760px;
+    width: 100%;
+  }
+
+  .ctrl-label {
+    font-size: 11px;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-right: 2px;
+  }
+
+  .mbt {
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 0.5px solid rgba(255,255,255,0.12);
+    background: transparent;
+    color: rgba(255,255,255,0.38);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+
+  .mbt:hover {
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.7);
+  }
+
+  .mbt.active {
+    background: rgba(255,255,255,0.1);
+    color: #e2e8f0;
+    border-color: rgba(255,255,255,0.3);
+  }
+
+  #playBtn {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 0.5px solid rgba(255,255,255,0.12);
+    background: transparent;
+    color: rgba(255,255,255,0.38);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  #playBtn:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.06); }
+
+  #drag-hint { font-size: 11px; color: #1e3a5f; }
+
+  #legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    max-width: 760px;
+    width: 100%;
+  }
+
+  #legend-label { font-size: 11px; color: #475569; }
+
+  #legend-bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    position: relative;
+  }
+
+  .legend-ends {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #475569;
+    margin-top: 3px;
+    font-family: 'Courier New', monospace;
+  }
+
+  #stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+    max-width: 760px;
+    width: 100%;
+  }
+
+  .stat-card {
+    background: rgba(255,255,255,0.03);
+    border: 0.5px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .stat-card-label {
+    font-size: 10px;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 4px;
+  }
+
+  .stat-card-val {
+    font-size: 20px;
+    font-weight: 600;
+    color: #f0f9ff;
+  }
+
+  .stat-card-sub {
+    font-size: 10px;
+    color: #475569;
+    margin-top: 2px;
+    font-family: 'Courier New', monospace;
+  }
+
+  footer {
+    margin-top: 28px;
+    font-size: 11px;
+    color: #1e3a5f;
+    text-align: center;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Environmental Climate Globe</h1>
+  <p>18 countries · 5 climate metrics · drag to spin · click to analyse</p>
+</header>
+
+<div id="globe-container">
+  <canvas id="gc"></canvas>
+  <div id="tooltip">
+    <div id="tt-name"></div>
+    <div id="tt-rows"></div>
+    <div id="tt-pledge"></div>
+    <div id="tt-hint">click to analyse this country</div>
+  </div>
+</div>
+
+<div id="controls">
+  <span class="ctrl-label">Metric</span>
+  <button class="mbt active" onclick="setMetric('co2',this)">CO₂/capita</button>
+  <button class="mbt" onclick="setMetric('ren',this)">Renewable %</button>
+  <button class="mbt" onclick="setMetric('aqi',this)">Air quality</button>
+  <button class="mbt" onclick="setMetric('forest',this)">Forest cover</button>
+  <button class="mbt" onclick="setMetric('risk',this)">Climate risk</button>
+  <button id="playBtn" onclick="toggleAuto()">⏸ pause</button>
+  <span id="drag-hint">drag to spin</span>
+</div>
+
+<div id="legend">
+  <span id="legend-label" class="ctrl-label">low</span>
+  <div style="flex:1">
+    <canvas id="legend-bar" height="8" style="width:100%;height:8px;border-radius:4px;display:block"></canvas>
+    <div class="legend-ends">
+      <span id="leg-min"></span>
+      <span id="leg-mid"></span>
+      <span id="leg-max"></span>
+    </div>
+  </div>
+  <span class="ctrl-label">high</span>
+</div>
+
+<div id="stats-grid">
+  <div class="stat-card">
+    <div class="stat-card-label">Countries mapped</div>
+    <div class="stat-card-val">18</div>
+    <div class="stat-card-sub">drag · hover · click</div>
+  </div>
+  <div class="stat-card" id="sc-best">
+    <div class="stat-card-label">Best performer</div>
+    <div class="stat-card-val" id="sc-best-val">Norway</div>
+    <div class="stat-card-sub" id="sc-best-sub">98% renewable</div>
+  </div>
+  <div class="stat-card" id="sc-worst">
+    <div class="stat-card-label">Needs most work</div>
+    <div class="stat-card-val" id="sc-worst-val">India</div>
+    <div class="stat-card-sub" id="sc-worst-sub">AQI 156</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">Avg CO₂/capita</div>
+    <div class="stat-card-val">7.8t</div>
+    <div class="stat-card-sub">global avg: 4.7t</div>
+  </div>
+</div>
+
+<script>
+const DATA = {
+  "India":         { lat:20.6,  lon:78.9,   co2:1.9,  ren:22, aqi:156, forest:24, risk:6.7, pop:1440, pledge:"Net Zero 2070" },
+  "United States": { lat:37.1,  lon:-95.7,  co2:14.2, ren:22, aqi:39,  forest:33, risk:4.2, pop:335,  pledge:"Net Zero 2050" },
+  "China":         { lat:35.8,  lon:104.2,  co2:8.4,  ren:30, aqi:98,  forest:23, risk:5.1, pop:1412, pledge:"Net Zero 2060" },
+  "Germany":       { lat:51.2,  lon:10.4,   co2:7.1,  ren:58, aqi:23,  forest:32, risk:3.1, pop:84,   pledge:"Net Zero 2045" },
+  "Brazil":        { lat:-14.2, lon:-51.9,  co2:2.3,  ren:85, aqi:31,  forest:58, risk:5.8, pop:215,  pledge:"Net Zero 2050" },
+  "Japan":         { lat:36.2,  lon:138.3,  co2:8.5,  ren:22, aqi:33,  forest:68, risk:4.8, pop:124,  pledge:"Net Zero 2050" },
+  "Australia":     { lat:-25.3, lon:133.8,  co2:15.1, ren:28, aqi:21,  forest:17, risk:5.3, pop:26,   pledge:"Net Zero 2050" },
+  "Canada":        { lat:56.1,  lon:-106.3, co2:14.9, ren:67, aqi:25,  forest:38, risk:3.8, pop:39,   pledge:"Net Zero 2050" },
+  "France":        { lat:46.2,  lon:2.2,    co2:4.6,  ren:24, aqi:26,  forest:31, risk:2.9, pop:68,   pledge:"Net Zero 2050" },
+  "UK":            { lat:55.4,  lon:-3.4,   co2:5.1,  ren:43, aqi:28,  forest:13, risk:2.7, pop:67,   pledge:"Net Zero 2050" },
+  "Russia":        { lat:61.5,  lon:105.3,  co2:11.4, ren:18, aqi:42,  forest:49, risk:4.1, pop:145,  pledge:"Net Zero 2060" },
+  "Saudi Arabia":  { lat:23.9,  lon:45.1,   co2:17.3, ren:1,  aqi:84,  forest:1,  risk:6.1, pop:36,   pledge:"Net Zero 2060" },
+  "Norway":        { lat:60.5,  lon:8.5,    co2:7.1,  ren:98, aqi:14,  forest:37, risk:2.1, pop:5,    pledge:"Net Zero 2030" },
+  "Indonesia":     { lat:-0.8,  lon:113.9,  co2:2.1,  ren:14, aqi:72,  forest:51, risk:7.1, pop:277,  pledge:"Net Zero 2060" },
+  "Nigeria":       { lat:9.1,   lon:8.7,    co2:0.6,  ren:18, aqi:92,  forest:25, risk:7.8, pop:223,  pledge:"None pledged"  },
+  "South Korea":   { lat:35.9,  lon:127.8,  co2:11.6, ren:9,  aqi:51,  forest:64, risk:3.9, pop:52,   pledge:"Net Zero 2050" },
+  "Mexico":        { lat:23.6,  lon:-102.6, co2:3.7,  ren:22, aqi:58,  forest:34, risk:5.9, pop:130,  pledge:"Net Zero 2050" },
+  "South Africa":  { lat:-30.6, lon:22.9,   co2:7.1,  ren:12, aqi:68,  forest:8,  risk:6.2, pop:60,   pledge:"Net Zero 2050" },
+};
+
+const METRICS = {
+  co2:    { label:"CO₂ per capita", unit:"t",   max:18,  good:false,
+            palette:[[6,0,18],[90,10,10],[210,50,20],[235,140,30],[240,210,80]] },
+  ren:    { label:"Renewable energy", unit:"%", max:100, good:true,
+            palette:[[20,10,50],[15,70,50],[20,150,80],[70,200,110],[170,235,140]] },
+  aqi:    { label:"Air quality index", unit:"", max:200, good:false,
+            palette:[[20,50,15],[110,150,20],[215,170,20],[215,90,20],[195,30,30]] },
+  forest: { label:"Forest cover", unit:"%",     max:70,  good:true,
+            palette:[[20,20,10],[30,90,30],[45,150,65],[65,190,85],[145,215,125]] },
+  risk:   { label:"Climate risk", unit:"/10",   max:10,  good:false,
+            palette:[[10,25,70],[20,90,170],[65,140,190],[185,130,40],[205,60,30]] },
+};
+
+let rotX=0.3, rotY=0.5, dragging=false, lastMX=0, lastMY=0;
+let autoSpin=true, activeMetric="co2", hoveredCountry=null;
+
+const canvas = document.getElementById("gc");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  const W = canvas.parentElement.offsetWidth || 760;
+  const H = Math.min(500, W * 0.68);
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.height = H + "px";
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+resize();
+window.addEventListener("resize", () => { resize(); drawLegend(); });
+
+function lerp3(pal, t) {
+  t = Math.max(0, Math.min(1, t));
+  const n = pal.length - 1;
+  const i = Math.floor(t * n);
+  const f = t * n - i;
+  const a = pal[Math.min(i, n)], b = pal[Math.min(i+1, n)];
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+}
+
+function getColor(d, m) {
+  const cfg = METRICS[m];
+  let t = d[m] / cfg.max;
+  if (cfg.good) t = 1 - t;
+  return lerp3(cfg.palette, Math.max(0, Math.min(1, t)));
+}
+
+function getDotSize(d, m) {
+  const cfg = METRICS[m];
+  const t = Math.max(0, Math.min(1, d[m] / cfg.max));
+  return 6 + t * 13;
+}
+
+function ll3d(lat, lon) {
+  const phi = (90 - lat) * Math.PI / 180;
+  const th  = (lon + 180) * Math.PI / 180;
+  return {
+    x: -Math.sin(phi) * Math.cos(th),
+    y:  Math.cos(phi),
+    z:  Math.sin(phi) * Math.sin(th)
+  };
+}
+
+function rot3d(p, rx, ry) {
+  const y1 = p.y * Math.cos(rx) - p.z * Math.sin(rx);
+  const z1 = p.y * Math.sin(rx) + p.z * Math.cos(rx);
+  const x2 = p.x * Math.cos(ry) + z1  * Math.sin(ry);
+  const z2 = -p.x * Math.sin(ry) + z1 * Math.cos(ry);
+  return { x: x2, y: y1, z: z2 };
+}
+
+const GRID_LATS = [], GRID_LONS = [];
+for (let a = -80; a <= 80; a += 15) GRID_LATS.push(a);
+for (let a = -180; a <= 180; a += 20) GRID_LONS.push(a);
+
+function drawFrame() {
+  const W = canvas.width / devicePixelRatio;
+  const H = canvas.height / devicePixelRatio;
+  const cx = W / 2, cy = H / 2;
+  const R  = Math.min(W, H) * 0.41;
+
+  ctx.clearRect(0, 0, W, H);
+
+  /* globe body */
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = "#070f1e";
+  ctx.fill();
+
+  /* latitude grid lines */
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+  for (const lat of GRID_LATS) {
+    let on = false;
+    ctx.beginPath();
+    for (let lon = -180; lon <= 180; lon += 3) {
+      const p = rot3d(ll3d(lat, lon), rotX, rotY);
+      if (p.z < 0) { on = false; continue; }
+      const px = cx + p.x * R, py = cy - p.y * R;
+      on ? ctx.lineTo(px, py) : (ctx.moveTo(px, py), on = true);
+    }
+    ctx.strokeStyle = "rgba(20,70,140,0.18)";
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+  /* longitude grid lines */
+  for (const lon of GRID_LONS) {
+    let on = false;
+    ctx.beginPath();
+    for (let lat = -88; lat <= 88; lat += 3) {
+      const p = rot3d(ll3d(lat, lon), rotX, rotY);
+      if (p.z < 0) { on = false; continue; }
+      const px = cx + p.x * R, py = cy - p.y * R;
+      on ? ctx.lineTo(px, py) : (ctx.moveTo(px, py), on = true);
+    }
+    ctx.strokeStyle = "rgba(20,70,140,0.12)";
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  /* equator highlight */
+  let on = false; ctx.beginPath();
+  for (let lon = -180; lon <= 180; lon += 2) {
+    const p = rot3d(ll3d(0, lon), rotX, rotY);
+    if (p.z < 0) { on = false; continue; }
+    const px = cx + p.x * R, py = cy - p.y * R;
+    on ? ctx.lineTo(px, py) : (ctx.moveTo(px, py), on = true);
+  }
+  ctx.strokeStyle = "rgba(30,100,200,0.22)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+
+  /* globe rim */
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(30,100,210,0.22)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  /* atmosphere glow */
+  ctx.beginPath();
+  ctx.arc(cx, cy, R + 2, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(14,140,210,0.06)";
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  /* collect & sort visible country dots back-to-front */
+  const visible = Object.entries(DATA).map(([name, d]) => {
+    const p3 = rot3d(ll3d(d.lat, d.lon), rotX, rotY);
+    return { name, d, p3, px: cx + p3.x * R, py: cy - p3.y * R };
+  }).filter(p => p.p3.z > 0.05).sort((a, b) => a.p3.z - b.p3.z);
+
+  for (const { name, d, p3, px, py } of visible) {
+    const c   = getColor(d, activeMetric);
+    const sz  = getDotSize(d, activeMetric);
+    const isH = name === hoveredCountry;
+
+    /* halo */
+    ctx.beginPath();
+    ctx.arc(px, py, sz + (isH ? 8 : 2), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${isH ? 0.25 : 0.10})`;
+    ctx.fill();
+
+    /* dot */
+    ctx.beginPath();
+    ctx.arc(px, py, sz, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${isH ? 1.0 : 0.82})`;
+    ctx.fill();
+
+    if (isH) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
+
+    /* country label */
+    const lbl = name.split(" ").pop();
+    ctx.font      = `${isH ? 500 : 400} ${isH ? 12 : 10}px 'Segoe UI',sans-serif`;
+    ctx.fillStyle = isH ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.55)";
+    ctx.textAlign = "center";
+    ctx.fillText(lbl, px, py - sz - 4);
+  }
+
+  /* metric value badge on hovered */
+  if (hoveredCountry && DATA[hoveredCountry]) {
+    const d   = DATA[hoveredCountry];
+    const p3  = rot3d(ll3d(d.lat, d.lon), rotX, rotY);
+    if (p3.z > 0) {
+      const px = cx + p3.x * R, py = cy - p3.y * R;
+      const cfg = METRICS[activeMetric];
+      const val = d[activeMetric] + cfg.unit;
+      ctx.font      = "500 11px 'Courier New',monospace";
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.textAlign = "center";
+      ctx.fillText(val, px, py + getDotSize(d, activeMetric) + 13);
+    }
+  }
+}
+
+/* legend bar */
+function drawLegend() {
+  const lc = document.getElementById("legend-bar");
+  const w  = lc.offsetWidth || 400;
+  lc.width = w * devicePixelRatio;
+  lc.height = 8 * devicePixelRatio;
+  const lctx = lc.getContext("2d");
+  lctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  const cfg = METRICS[activeMetric];
+  for (let i = 0; i <= w; i++) {
+    let t = i / w;
+    if (cfg.good) t = 1 - t;
+    const c = lerp3(cfg.palette, t);
+    lctx.fillStyle = `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
+    lctx.fillRect(i, 0, 1, 8);
+  }
+  document.getElementById("leg-min").textContent = cfg.good ? cfg.max + cfg.unit : "0";
+  document.getElementById("leg-mid").textContent = (cfg.max / 2).toFixed(0) + cfg.unit;
+  document.getElementById("leg-max").textContent = cfg.good ? "0" : cfg.max + cfg.unit;
+  updateStatCards();
+}
+
+function updateStatCards() {
+  const cfg = METRICS[activeMetric];
+  let bestV = cfg.good ? -Infinity : Infinity;
+  let worstV = cfg.good ? Infinity : -Infinity;
+  let bestN = "", worstN = "";
+  for (const [name, d] of Object.entries(DATA)) {
+    const v = d[activeMetric];
+    if (cfg.good ? v > bestV : v < bestV) { bestV = v; bestN = name; }
+    if (cfg.good ? v < worstV : v > worstV) { worstV = v; worstN = name; }
+  }
+  document.getElementById("sc-best-val").textContent  = bestN;
+  document.getElementById("sc-best-sub").textContent  = cfg.label + ": " + bestV + cfg.unit;
+  document.getElementById("sc-worst-val").textContent = worstN;
+  document.getElementById("sc-worst-sub").textContent = cfg.label + ": " + worstV + cfg.unit;
+}
+
+/* main loop */
+function loop() {
+  if (autoSpin && !dragging) rotY += 0.004;
+  drawFrame();
+  requestAnimationFrame(loop);
+}
+loop();
+drawLegend();
+
+/* tooltip */
+function showTT(name, ex, ey) {
+  const d   = DATA[name];
+  const cfg = METRICS[activeMetric];
+  const c   = getColor(d, activeMetric);
+  const tt  = document.getElementById("tooltip");
+
+  document.getElementById("tt-name").textContent = name;
+  document.getElementById("tt-rows").innerHTML   =
+    `<div style="color:rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])});font-weight:600;margin-bottom:2px">
+       ${cfg.label}: <span>${d[activeMetric]}${cfg.unit}</span>
+     </div>` +
+    `CO₂/capita: <span>${d.co2}t</span><br>` +
+    `Renewable:  <span>${d.ren}%</span><br>` +
+    `AQI PM2.5:  <span>${d.aqi}</span><br>` +
+    `Forest:     <span>${d.forest}%</span><br>` +
+    `Risk score: <span>${d.risk}/10</span><br>` +
+    `Population: <span>${d.pop}M</span>`;
+  document.getElementById("tt-pledge").textContent = d.pledge;
+
+  const rect = canvas.getBoundingClientRect();
+  let lx = ex + 18, ly = ey - 12;
+  if (lx + 210 > rect.width) lx = ex - 220;
+  if (ly + 180 > rect.height) ly = rect.height - 190;
+  tt.style.left    = lx + "px";
+  tt.style.top     = ly + "px";
+  tt.style.display = "block";
+}
+function hideTT() { document.getElementById("tooltip").style.display = "none"; }
+
+/* hit test */
+function hitTest(mx, my) {
+  const W = canvas.width / devicePixelRatio;
+  const H = canvas.height / devicePixelRatio;
+  const cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.41;
+  let best = null, bestD = 32;
+  for (const [name, d] of Object.entries(DATA)) {
+    const p3 = rot3d(ll3d(d.lat, d.lon), rotX, rotY);
+    if (p3.z <= 0) continue;
+    const px = cx + p3.x * R, py = cy - p3.y * R;
+    const dist = Math.hypot(px - mx, py - my);
+    if (dist < bestD) { bestD = dist; best = name; }
+  }
+  return best;
+}
+
+/* mouse events */
+canvas.addEventListener("mousedown", e => {
+  dragging = true;
+  lastMX = e.offsetX; lastMY = e.offsetY;
+  autoSpin = false;
+  document.getElementById("playBtn").textContent = "▶ play";
+});
+window.addEventListener("mousemove", e => {
+  if (!dragging) return;
+  const rect = canvas.getBoundingClientRect();
+  const ox = e.clientX - rect.left, oy = e.clientY - rect.top;
+  rotY += (ox - lastMX) * 0.006;
+  rotX += (oy - lastMY) * 0.006;
+  rotX = Math.max(-1.3, Math.min(1.3, rotX));
+  lastMX = ox; lastMY = oy;
+});
+window.addEventListener("mouseup", () => { dragging = false; });
+
+canvas.addEventListener("mousemove", e => {
+  if (dragging) return;
+  const h = hitTest(e.offsetX, e.offsetY);
+  canvas.style.cursor = h ? "pointer" : "grab";
+  hoveredCountry = h;
+  h ? showTT(h, e.offsetX, e.offsetY) : hideTT();
+});
+canvas.addEventListener("mouseleave", () => { hoveredCountry = null; hideTT(); });
+
+canvas.addEventListener("click", e => {
+  if (dragging) return;
+  const h = hitTest(e.offsetX, e.offsetY);
+  if (h) {
+    const d = DATA[h], cfg = METRICS[activeMetric];
+    alert(`🌍 ${h}\n\n${cfg.label}: ${d[activeMetric]}${cfg.unit}\nCO₂/capita: ${d.co2}t\nRenewable: ${d.ren}%\nAQI: ${d.aqi}\nForest cover: ${d.forest}%\nClimate risk: ${d.risk}/10\nNet-zero pledge: ${d.pledge}\n\nFor a full analysis, paste this into Claude:\n"Give me a deep climate analysis for ${h}: emissions, renewable, air quality, deforestation, and policy insights."`);
+  }
+});
+
+/* touch events */
+canvas.addEventListener("touchstart", e => {
+  dragging = true;
+  lastMX = e.touches[0].clientX;
+  lastMY = e.touches[0].clientY;
+  autoSpin = false;
+  document.getElementById("playBtn").textContent = "▶ play";
+}, { passive: true });
+canvas.addEventListener("touchmove", e => {
+  if (!dragging) return;
+  const dx = e.touches[0].clientX - lastMX;
+  const dy = e.touches[0].clientY - lastMY;
+  rotY += dx * 0.006;
+  rotX += dy * 0.006;
+  rotX = Math.max(-1.3, Math.min(1.3, rotX));
+  lastMX = e.touches[0].clientX;
+  lastMY = e.touches[0].clientY;
+}, { passive: true });
+canvas.addEventListener("touchend", () => { dragging = false; });
+
+/* controls */
+function setMetric(m, btn) {
+  activeMetric = m;
+  document.querySelectorAll(".mbt").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  hideTT(); hoveredCountry = null;
+  drawLegend();
+}
+
+function toggleAuto() {
+  autoSpin = !autoSpin;
+  document.getElementById("playBtn").textContent = autoSpin ? "⏸ pause" : "▶ play";
+}
+</script>
+
+<footer>
+  Data: CPCB · IEA · World Bank · Carbon Brief · Global Forest Watch · FAO 2025<br>
+  Built with vanilla HTML/CSS/JS · Canvas 2D · no external dependencies
+</footer>
+
+</body>
+</html>
