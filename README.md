@@ -2,7 +2,7 @@
 
 An interactive, lightweight 3D Climate Globe built completely from scratch using vanilla HTML5 Canvas, CSS, and JavaScript. No external libraries (like Three.js) or dependencies required.
 
-👉 [**Live Demo Link**](Your GitHub Pages URL here)
+👉 https://nanze101.github.io/AtmoSphere/
 
 ## 🌍 Features
 * **Interactive 3D Globe:** Smooth mouse dragging, touch-tracking for mobile, and physics-based auto-rotation.
